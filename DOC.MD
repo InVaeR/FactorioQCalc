@@ -14,7 +14,7 @@ FactorioQCalc/
 │   └── main_window.py      # QMainWindow, виджеты, Factorio-стилизация
 ├── tests/
 │   ├── __init__.py
-│   └── test_calculator.py  # Юнит-тесты (20 тестов)
+│   └── test_calculator.py  # Юнит-тесты (40 тестов)
 ├── assets/
 │   └── images/
 │       ├── Quality_normal.png       # Иконка Normal (64×64)
@@ -25,11 +25,10 @@ FactorioQCalc/
 │       ├── Quality_module.png       # Иконка Quality Module 1 (64×64)
 │       ├── Quality_module_2.png     # Иконка Quality Module 2 (64×64)
 │       ├── Quality_module_3.png     # Иконка Quality Module 3 (64×64)
-│       ├── chevron-arrow-up.png     # Стрелка вверх (128×128)
-│       ├── chevron-arrow-down.png   # Стрелка вниз (128×128)
-│       ├── chevron-arrow-up_14.png  # Стрелка вверх (14×14, сгенерирована)
-│       └── chevron-arrow-down_14.png# Стрелка вниз (14×14, сгенерирована)
-├── requirements.txt        # PySide6
+│       ├── chevron-arrow-up_14.png  # Стрелка вверх (14×14)
+│       └── chevron-arrow-down_14.png# Стрелка вниз (14×14)
+├── pyproject.toml          # Конфигурация и зависимости
+├── requirements-dev.txt    # Dev-зависимости (pytest)
 ├── SPEC.MD                 # Спецификация
 └── DOC.MD                  # Документация (текущий файл)
 ```
@@ -181,7 +180,7 @@ final = {}
 for each iteration:
     craft всё из queue через distribute() с Q_prod
     for each level lvl:
-        if lvl < recycle_threshold:
+        if lvl <= recycle_threshold:
             recycle через distribute(lvl, Q_rec, amount * 0.25)
             результат → queue следующей итерации
         else:
@@ -194,15 +193,16 @@ for each iteration:
 - Система гарантированно сходится (убывающая геометрическая прогрессия)
 - Качество модулей рециклера повышает качество возвращаемых материалов
 - При `Q_rec = 0` возвращается 25% материала без изменения качества
-- При `threshold = 1` рециклинг де-факто отключён (все уровни ≥ 1 выходят)
+- При `threshold = 1` рециклится только уровень 1 (Normal), остальные выходят
 
 ## 6. Тесты
 
-28 тестов в `tests/test_calculator.py`:
+40 тестов в `tests/test_calculator.py`:
 - `TestQualityBonus` (6 тестов) — корректность бонусов, невалидные параметры
-- `TestTotalChance` (5 тестов) — суммирование, кап на 100%, отрицательное кол-во
-- `TestDistribute` (9 тестов) — нулевой шанс, potолок, сумма долей = 100%, распределение для разных `max_unlocked_level`, проверка `start_level > max_unlocked_level`
-- `TestRecycling` (8 тестов) — `threshold=1` эквивалентен single pass, нулевой `Q_rec`, конвергенция, улучшение от качества рециклера, валидация
+- `TestTotalChance` (7 тестов) — суммирование, кап на 100%, отрицательное кол-во, граничные случаи
+- `TestDistribute` (10 тестов) — нулевой шанс, потолок, сумма долей = 100%, распределение для разных `max_unlocked_level`, `items_per_min == share * rate`
+- `TestRecycling` (10 тестов) — threshold, нулевой Q_rec, конвергенция, баланс массы, геометрическая прогрессия
+- `TestRecyclingValidation` (7 тестов) — Q_prod>1, Q_rec<0, base_input<0, threshold вне диапазона, threshold==max_unlocked, max_iterations сходимость
 
 Запуск: `pytest tests/test_calculator.py -v`
 

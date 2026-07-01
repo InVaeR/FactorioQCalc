@@ -68,7 +68,8 @@
 | Количество модулей          | `QSpinBox`       | 0–10                                        | 4            |
 | Уровень модуля (tier)       | `QComboBox`      | Quality 1 / 2 / 3                           | Quality 3    |
 | Качество модуля             | `QComboBox`      | Normal / Uncommon / Rare / Epic / Legendary | Normal       |
-| Производство в минуту       | `QDoubleSpinBox` | 0.0–1 000 000                               | 60.0         |
+| Производство                | `QDoubleSpinBox` | 0.0–1 000 000                               | 60.0         |
+| Единица измерения           | `QComboBox`      | шт/с / шт/мин / шт/ч                        | шт/мин       |
 | Начальное качество входа    | `QComboBox`      | Normal / Uncommon / Rare / Epic             | Normal       |
 | **Макс. открытое качество** | `QComboBox`      | Normal / Uncommon / Rare / Epic / Legendary | Legendary    |
 
@@ -168,7 +169,7 @@ def distribute(
 
 - `Q_prod` — суммарный шанс качества в производстве
 - `Q_rec` — суммарный шанс качества в рециклере
-- `R` — порог рециклинга (уровень, ниже которого всё идёт в рециклер)
+- `R` — порог рециклинга (уровни ≤ R идут в рециклер)
 - `M` — `max_unlocked_level`
 - `dist(start, Q, rate, M)` — функция распределения для одного прохода
 - `base_input` — сырьё, подаваемое на вход системы
@@ -181,7 +182,7 @@ final = {}
 for each iteration:
     craft всё из queue через distribute() с Q_prod
     for each level lvl:
-        if lvl < R:
+        if lvl <= R:
             recycle через distribute(lvl, Q_rec, amount * 0.25)
             результат → queue следующей итерации
         else:
@@ -215,13 +216,14 @@ FactorioQCalc/
 │   └── calculator.py       # функции расчёта (без зависимости от UI)
 ├── tests/
 │   ├── __init__.py
-│   └── test_calculator.py  # 20 юнит-тестов
+│   └── test_calculator.py  # 40 юнит-тестов
 ├── assets/
 │   └── images/
 │       ├── Quality_normal.png / ..._uncommon / ..._rare / ..._epic / ..._legendary.png
 │       ├── Quality_module.png / ..._module_2.png / ..._module_3.png
-│       └── chevron-arrow-up.png / chevron-arrow-down.png
-├── requirements.txt        # PySide6
+│       └── chevron-arrow-up_14.png / chevron-arrow-down_14.png
+├── pyproject.toml          # Конфигурация и зависимости
+├── requirements-dev.txt    # Dev-зависимости (pytest)
 ├── SPEC.MD                 # спецификация
 └── DOC.MD                  # документация реализации
 ```
@@ -261,7 +263,7 @@ FactorioQCalc/
 4. При `start_level == max_unlocked_level` весь выход на этом уровне. ✅
 5. При `start_level > max_unlocked_level` приложение показывает ошибку валидации. ✅
 6. Изменение «Макс. открытое качество» корректно пересчитывает таблицу и ограничивает число отображаемых строк. ✅
-7. Юнит-тесты на `core/calculator.py` (включая случаи с разными `max_unlocked_level`) проходят. ✅ (20 тестов)
+7. Юнит-тесты на `core/calculator.py` (включая случаи с разными `max_unlocked_level`) проходят. ✅ (40 тестов)
 8. UI корректно отображает результат после нажатия «Рассчитать». ✅
 
 *Рециклинг:* ✅

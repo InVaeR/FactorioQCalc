@@ -44,6 +44,17 @@ class TestTotalChance:
         with pytest.raises(ValueError):
             total_chance(-1, 1, 1)
 
+    def test_zero_count_all_tiers(self):
+        for tier in [1, 2, 3]:
+            for quality in [1, 5]:
+                assert total_chance(0, tier, quality) == 0.0
+
+    def test_cap_intermediate(self):
+        # 50 QM1 normal = 50 * 0.01 = 0.5 → not capped
+        assert abs(total_chance(50, 1, 1) - 0.5) < 1e-10
+        # 150 QM1 normal = 150 * 0.01 = 1.5 → capped at 1.0
+        assert total_chance(150, 1, 1) == 1.0
+
 
 class TestDistribute:
     def test_zero_chance(self):
@@ -90,6 +101,12 @@ class TestDistribute:
         # P(at 2) = 1.0 (cascade stops at max)
         assert abs(result[1][0]) < 1e-10
         assert abs(result[2][0] - 1.0) < 1e-10
+
+    def test_items_per_min_match_share_times_rate(self):
+        result = distribute(1, 0.25, 200.0, 5)
+        for level in range(1, 6):
+            share, items = result[level]
+            assert abs(items - share * 200.0) < 1e-10
 
     def test_specific_distribution(self):
         # With Q=0.1 from start_level=1, max_unlocked=5:
@@ -199,6 +216,32 @@ class TestRecycling:
                 recycle_threshold=2, max_unlocked_level=3,
             )
 
+    def test_mass_balance_geometric_series(self):
+        result = calculate_with_recycling(
+            base_input=100.0, start_level=1,
+            Q_prod=0.0, Q_rec=0.0,
+            recycle_threshold=1, max_unlocked_level=1,
+        )
+        # Q=0: everything stays at level 1.
+        # threshold=1: level 1 recycled.
+        # Series: 100 → 25 → 6.25 → ... → 0 after ~20 iterations
+        # With max_unlocked=1, threshold=1, never exits, so result[1] = 0
+        assert abs(result[1]) < 1e-9
+
+    def test_mass_balance_recycling_ratio(self):
+        result = calculate_with_recycling(
+            base_input=100.0, start_level=1,
+            Q_prod=0.2, Q_rec=0.0,
+            recycle_threshold=1, max_unlocked_level=5,
+        )
+        # Q_prod=0.2, only level 1 recycled (<=1)
+        # Each cycle: 80% of processed material stays at lvl1 and gets recycled
+        # Recycler returns 25% of that = 20% of processed material
+        # Total processed = 100 / (1 - 0.8*0.25) = 100 / 0.8 = 125
+        # Total output = 125 * 0.2 = 25 (levels 2-5 combined)
+        total_out = sum(result.values())
+        assert abs(total_out - 25.0) < 1.0
+
     def test_recycler_quality_improves_output(self):
         no_q = calculate_with_recycling(
             base_input=100.0, start_level=1,
@@ -213,3 +256,73 @@ class TestRecycling:
         # With recycler quality, more items should be upgraded to higher levels
         for level in range(2, 6):
             assert with_q[level] >= no_q[level] - 1e-9
+
+
+class TestRecyclingValidation:
+    def test_qprod_gt_1(self):
+        with pytest.raises(ValueError):
+            calculate_with_recycling(
+                base_input=60.0, start_level=1,
+                Q_prod=1.1, Q_rec=0.0,
+                recycle_threshold=2, max_unlocked_level=5,
+            )
+
+    def test_qrec_lt_0(self):
+        with pytest.raises(ValueError):
+            calculate_with_recycling(
+                base_input=60.0, start_level=1,
+                Q_prod=0.1, Q_rec=-0.1,
+                recycle_threshold=2, max_unlocked_level=5,
+            )
+
+    def test_base_input_negative(self):
+        with pytest.raises(ValueError):
+            calculate_with_recycling(
+                base_input=-10.0, start_level=1,
+                Q_prod=0.1, Q_rec=0.0,
+                recycle_threshold=2, max_unlocked_level=5,
+            )
+
+    def test_recycle_threshold_lt_1(self):
+        with pytest.raises(ValueError):
+            calculate_with_recycling(
+                base_input=60.0, start_level=1,
+                Q_prod=0.1, Q_rec=0.0,
+                recycle_threshold=0, max_unlocked_level=5,
+            )
+
+    def test_recycle_threshold_gt_max(self):
+        with pytest.raises(ValueError):
+            calculate_with_recycling(
+                base_input=60.0, start_level=1,
+                Q_prod=0.1, Q_rec=0.0,
+                recycle_threshold=6, max_unlocked_level=5,
+            )
+
+    def test_threshold_equals_max_unlocked_with_qprod_zero(self):
+        result = calculate_with_recycling(
+            base_input=100.0, start_level=1,
+            Q_prod=0.0, Q_rec=0.0,
+            recycle_threshold=5, max_unlocked_level=5,
+        )
+        # All material stays at level 1 and gets recycled (1 <= 5)
+        # Since Q_prod=0, nothing upgrades → infinite loop without convergence check
+        # Actually: 100% stays at lvl1 → recycled → 25 → 6.25 → ... → 0
+        # Final output should be 0 at all levels
+        for level in range(1, 6):
+            assert result[level] >= 0.0
+        total = sum(result.values())
+        assert total < 1e-6
+
+    def test_max_iterations_converges(self):
+        result = calculate_with_recycling(
+            base_input=1e6, start_level=1,
+            Q_prod=0.99, Q_rec=0.99,
+            recycle_threshold=3, max_unlocked_level=5,
+        )
+        # Extreme: high quality both sides, large input
+        # Should converge to finite values, not infinite loop
+        for level in range(1, 6):
+            assert result[level] >= 0
+        total = sum(result.values())
+        assert 0 < total < 1e6
