@@ -1,5 +1,5 @@
 import pytest
-from core.calculator import quality_bonus, total_chance, distribute, calculate_with_recycling
+from core.calculator import quality_bonus, total_chance, total_chance_from_modules, distribute, calculate_with_recycling
 
 
 class TestQualityBonus:
@@ -54,6 +54,29 @@ class TestTotalChance:
         assert abs(total_chance(50, 1, 1) - 0.5) < 1e-10
         # 150 QM1 normal = 150 * 0.01 = 1.5 → capped at 1.0
         assert total_chance(150, 1, 1) == 1.0
+
+
+class TestTotalChanceFromModules:
+    def test_empty_list(self):
+        assert total_chance_from_modules([]) == 0.0
+
+    def test_mixed_slots(self):
+        result = total_chance_from_modules([(3, 5), (3, 5), None, (1, 1)])
+        expected = 0.062 + 0.062 + 0.01
+        assert abs(result - expected) < 1e-10
+
+    def test_none_slots_ignored(self):
+        result = total_chance_from_modules([None, (2, 3), None, None])
+        assert abs(result - 0.032) < 1e-10
+
+    def test_equivalent_to_old_api(self):
+        old = total_chance(4, 3, 1)
+        new = total_chance_from_modules([(3, 1)] * 4)
+        assert abs(old - new) < 1e-10
+
+    def test_too_many_slots(self):
+        with pytest.raises(ValueError):
+            total_chance_from_modules([(1, 1)] * 10)
 
 
 class TestDistribute:

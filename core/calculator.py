@@ -1,4 +1,4 @@
-from core.data import BONUS_TABLE, MAX_QUALITY_LEVEL
+from core.data import BONUS_TABLE, MAX_QUALITY_LEVEL, MAX_MODULE_SLOTS
 
 
 def quality_bonus(tier: int, quality: int) -> float:
@@ -14,6 +14,18 @@ def total_chance(count: int, tier: int, quality: int) -> float:
         raise ValueError(f"Count must be non-negative: {count}")
     bonus = quality_bonus(tier, quality)
     return min(count * bonus, 1.0)
+
+
+def total_chance_from_modules(modules: list[tuple[int, int] | None]) -> float:
+    if len(modules) > MAX_MODULE_SLOTS:
+        raise ValueError(f"Too many modules: {len(modules)} > {MAX_MODULE_SLOTS}")
+    total = 0.0
+    for m in modules:
+        if m is None:
+            continue
+        tier, quality = m
+        total += quality_bonus(tier, quality)
+    return min(total, 1.0)
 
 
 def distribute(
